@@ -1,0 +1,51 @@
+# 54
+import numpy as np
+
+def load_word2vec(path):
+  with open(path, 'rb') as f:
+    vocab_size, dim = map(int, f.readline().split())
+    words = []
+    vectors = np.empty((vocab_size, dim), dtype=np.float32)
+    for i in range(vocab_size):
+      chars = []
+      while True:
+        ch = f.read(1)
+        if ch == b' ':
+          break
+        if ch != b'\n':
+          chars.append(ch)
+      words.append(b''.join(chars).decode('utf-8'))
+      vectors[i] = np.fromfile(f, dtype=np.float32, count=dim)
+  word_to_index = {w: i for i, w in enumerate(words)}
+  return words, vectors, word_to_index
+
+def most_similar(positive, negative=None, topn=10):
+  if negative is None:
+    negative = []
+  query = np.zeros(vectors.shape[1], dtype=np.float32)
+  exclude = set()
+  for w in positive:
+    query += vectors[word_to_index[w]]
+    exclude.add(w)
+  for w in negative:
+    query -= vectors[word_to_index[w]]
+    exclude.add(w)
+  sims = np.dot(vectors, query) / (np.linalg.norm(vectors, axis=1) * np.linalg.norm(query))
+  for w in exclude:
+    sims[word_to_index[w]] = -np.inf
+  top = np.argsort(-sims)[:topn]
+  return [(words[i], float(sims[i])) for i in top]
+
+words, vectors, word_to_index = load_word2vec('data/GoogleNews-vectors-negative300.bin')
+with open('data/questions-words.txt', 'r', encoding='utf-8') as f_in,\
+     open('ans54.txt', 'w', encoding='utf-8') as f_out:
+  section_name = ''
+  section_data = {}
+  for line in f_in:
+    if line.split()[0] == ':': 
+      section_name = line.split()[1]
+      continue
+    if (section_name == 'capital-common-countries') | True:
+      w1, w2, w3, w4 = line.split()
+      word, sim = most_similar([w2,w3], [w1], 1)[0]
+      f_out.write(f"{section_name} {w1} {w2} {w3} {w4} {word} {sim}\n")
